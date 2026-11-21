@@ -5,22 +5,19 @@ mirrored byte-for-byte from the
 [Dylint releases](https://github.com/trailofbits/dylint/releases).
 
 These two commands are what a Dylint lint library needs in order to be
-built and run. [perfectionist](https://github.com/KSXGitHub/perfectionist)
-is such a library, and the projects that lint with it
-(`parallel-disk-usage`, `my-translated-lyrics`, `pnpm`) need the same two
-commands.
+built and run.
 
 ## Why mirror them
 
-`cargo install --locked cargo-dylint dylint-link` takes roughly two
-minutes of wall time on four cores and leaves about 700 MB under the
-target directory, which a container with a fixed disk allowance has to
-pay for every time. Extracting these tarballs takes about a second and
-costs 14 MB.
+Building both from source costs minutes of CPU and leaves hundreds of
+megabytes under the target directory, which a container with a fixed disk
+allowance pays for every time it starts. Extracting these tarballs takes
+about a second.
 
-The source build also needs a toolchain new enough for Dylint's own MSRV,
-which is not always the one a container ships with. `cargo install` of
-version 6.4.0 fails outright on rustc 1.97.0, for example.
+A source build also needs a toolchain new enough for Dylint's own MSRV,
+which is not always the one a container ships with. Where it is not,
+`cargo install` refuses to start and the toolchain has to be provisioned
+first.
 
 Running `cargo dylint` still builds the Dylint driver and the lint
 library itself, and those two are the larger part of a cold run. What the
@@ -28,40 +25,31 @@ mirror removes is only the cost of the two commands.
 
 ## Picking a version
 
-Take the version the consuming project already pins:
-
-| Version | Pinned by                                                             |
-| ------- | --------------------------------------------------------------------- |
-| 6.3.0   | `pnpm`, in the `dylint` job of `.github/workflows/pacquet-ci.yml`     |
-| 6.3.2   | `parallel-disk-usage` and `my-translated-lyrics`, in `dylint-version` |
-| 6.4.0   | `perfectionist`, as the `dylint_linting` dependency in `Cargo.toml`   |
-
-Keep `cargo-dylint` and `dylint-link` on the same version. They are
-released together under one tag.
+Take whichever version your project pins, and keep `cargo-dylint` and
+`dylint-link` on the same one. They are released together under one tag.
 
 Matching the pin is a convenience rather than a requirement. The only
 compatibility gate is in the Dylint driver, which reads the
 `dylint_version` symbol out of the lint library and compares it against
-its own `DYLINT_VERSION`. That constant is the string `0.1.0` in
-`dylint_linting` 6.0.1 and in 6.4.0 alike, so it does not track the crate
-version, and a newer `cargo-dylint` drives an older library. The 6.4.0
-binary here ran a `perfectionist` built against `dylint_linting` 6.0.1
-without complaint.
+its own `DYLINT_VERSION`. That constant tracks the symbol's ABI rather
+than the crate version, so where two releases agree on it, a newer
+`cargo-dylint` drives a library built by an older `dylint_linting`. Both
+spellings of the constant are in the published sources, so a pairing can
+be checked before it is relied on.
 
 ## What the toolchain has to be
 
-Nothing here pins the consuming project's toolchain. `cargo dylint`
+Nothing here pins the toolchain your project builds under. `cargo dylint`
 builds the lint library, and the driver to load it with, under the
-toolchain the *library* asks for, not the one the project lints under:
-linting `parallel-disk-usage`, which is on 1.100.0, built a driver under
-`nightly-2026-05-28` because that is what the pinned `perfectionist`
-revision requires.
+toolchain the *library* asks for. A project on a stable toolchain can
+therefore find a driver being built under a nightly, because that is what
+the library it lints with pins.
 
 So `rustup` has to be present and free to install that toolchain, with
-whatever components the library names. `perfectionist` asks for
-`rustc-dev`, `rust-src` and `llvm-tools-preview`, which is a download of
-some hundreds of megabytes on a cold container, and another cost the
-mirror does not remove.
+whatever components the library names. A library built on `clippy_utils`
+needs `rustc-dev` at least, and often `rust-src` and
+`llvm-tools-preview` besides, which is a sizeable download on a cold
+container, and another cost the mirror does not remove.
 
 ## Using them
 
@@ -83,7 +71,7 @@ Without a checkout of this repository, pipe them in instead:
 ```bash
 version=6.4.0
 dest=~/.local/bin
-base=https://raw.githubusercontent.com/KSXGitHub/convenient-binaries-for-cloud-ai-agents/master
+base=https://raw.githubusercontent.com/KSXGitHub/convenient-binaries-for-cloud-ai-agents/HEAD
 mkdir -p "$dest"
 for bin in cargo-dylint dylint-link; do
   curl -sSL "$base/dylint/$version/$bin-x86_64-unknown-linux-gnu-v$version.tar.gz" \
@@ -96,53 +84,56 @@ same as a source install does.
 
 ## Verifying
 
-Every tarball comes with the `.sha256` and `.sig` files the release
-publishes. The signature is
-[minisign](https://jedisct1.github.io/minisign/), and each Dylint release
-signs with its own key, so every version directory carries the one that
-signed it as `minisign.pub`:
+`verify.sh` runs every check this mirror can offer, over one version or
+all of them:
 
 ```bash
-version=6.4.0
-cd "dylint/$version"
-for bin in cargo-dylint dylint-link; do
-  f="$bin-x86_64-unknown-linux-gnu-v$version.tar.gz"
-  minisign -V -p minisign.pub -m "$f" -x "$f.sig"
-done
+dylint/verify.sh          # every mirrored version
+dylint/verify.sh 6.4.0    # one of them
 ```
 
-`-x` is needed because `minisign` looks for `<file>.minisig` by default
-and the release names it `<file>.sig`.
+It names any check it had to skip rather than passing quietly, and fails
+if a check that did run failed. The checks, weakest first:
 
-Each key came from `package.metadata.binstall.signing.pubkey` in that
-version's `Cargo.toml` on crates.io, which is where `cargo-binstall`
-reads it from.
+- **The published digest**, from the `.sha256` beside each tarball.
+  Catches a damaged file.
+- **The minisign signature**, from the `.sig`, against the
+  `minisign.pub` in that version's directory. Needs
+  [minisign](https://jedisct1.github.io/minisign/).
+- **The bytes GitHub serves now**, re-downloaded and compared, which
+  shows this mirror holds upstream's release and not someone else's.
+  Set `SKIP_NETWORK=true` to leave it out.
+- **The build provenance**, via `gh attestation verify`. This is the
+  only check that says where a binary came from rather than who vouched
+  for it, and it needs GitHub API access that a sandboxed agent often
+  does not have.
 
 ### What the signature does and does not establish
 
 It is worth being exact, because "signature verified" sounds like more
 than this is.
 
-Every Dylint release signs with a different key. Seven consecutive
-versions, 6.0.1 through 6.4.0, carry seven unrelated public keys, so
-there is no long-lived key to pin and no way to recognise the signer
-across releases. The key in each directory also came from the same
-crates.io metadata as the release it verifies, rather than from an
-independent channel.
+Each version mirrored here carries its own signing key, unrelated to the
+rest, which is why the key sits in the version directory rather than at
+the top of this one. So there is no long-lived key to pin and no way to
+recognise a signer across releases. Each key also came from
+`package.metadata.binstall.signing.pubkey` in that version's
+`Cargo.toml` on crates.io, which is where `cargo-binstall` reads it from,
+rather than from a channel independent of the release itself.
 
-Note also what crates.io is carrying here. It hosts source, not
-binaries, so the key in a published `Cargo.toml` is a claim about which
-key signs the binaries, made by whoever can publish that crate. The
-check therefore says a key designated from the source signed this
-binary. It says nothing about the binary having been built from that
-source, because no part of the scheme records how the binary was
-produced.
+Note what crates.io is carrying there. It hosts source, not binaries, so
+that key is a claim about which key signs the binaries, made by whoever
+can publish the crate. The check therefore says a key designated from
+the source signed this binary. It says nothing about the binary having
+been built from that source, because no part of the scheme records how
+the binary was produced.
 
-That is the property a mirror of binaries most wants, and this scheme
-does not supply it. What a verified signature catches is a corrupted
-download, and a release asset tampered with after publication by someone
-who could not also republish the crate. It is not proof of anyone's
-identity, and it would not survive a compromised release pipeline.
+That is the property a mirror of binaries most wants, and only the
+attestation supplies it. What a verified signature catches is a
+corrupted download, and a release asset tampered with after publication
+by someone who could not also republish the crate. It is not proof of
+anyone's identity, and it would not survive a compromised release
+pipeline.
 
 So a prebuilt binary asks for strictly more trust than a source install
 does. `cargo install cargo-dylint` trusts crates.io and your own
@@ -151,52 +142,38 @@ built it honestly from that source, on top. Where that is too much, the
 fallback is to build from the same crates.io source and ignore this
 directory.
 
-The stronger anchor is the sigstore attestation GitHub attaches to each
-release, which ties an artifact to the workflow that built it rather than
-to a bare key. It is served only from the GitHub API, which was blocked
-in the sandbox that assembled this mirror, so it is absent here.
-
 What the mirror itself adds is immutability. A GitHub release asset can
 be deleted and re-uploaded under the same name; these bytes are frozen
 under a git commit, at digests recorded when they were reviewed.
 
-That signature covers a hash of the tarball, so it subsumes the
-`.sha256`, which is mirrored for completeness rather than because
-checking it adds anything. It comes in two layouts, since the 6.3.x and
-6.4.0 releases were cut by different runners: 6.3.0 and 6.3.2 use the
-`coreutils` one that `sha256sum --check` reads, and 6.4.0 the BSD
-`SHA2-256(file)= hash` one, which it does not.
-
 ## Architecture and glibc floor
 
-These are `x86_64` only. Dylint also publishes
-`aarch64-unknown-linux-gnu`, which is not mirrored here, so an arm64
-container still has to install from source.
+These are `x86_64` only, and built against glibc. The releases carry
+other targets that are not mirrored here, so check the releases page
+before concluding a platform is unserved.
 
-Every binary here needs **glibc 2.39 or newer**, the version on the
-Ubuntu 24.04 runner that builds them. They run on Ubuntu 24.04, Debian 13
-and anything later, and fail to start on Ubuntu 22.04, Debian 12 or
-Amazon Linux 2023.
+Each binary refuses to start below the glibc its release was built
+against, and that floor is high enough to exclude container images still
+in common use. `verify.sh` reads it off the binaries and prints it beside
+the glibc of the machine running it, so there is no number here to go
+stale against an upstream that moves its build runner.
 
-Dylint publishes no musl target, so there is nothing to mirror for an
-older container. Building the two commands for
-`x86_64-unknown-linux-musl` does work: the result is a pair of static
-binaries with no glibc floor at all, and 6.4.0 built that way ran a
-project's lints end to end, driver build included. They are not mirrored
-here because they would be the only artifacts in this repository with no
-upstream signature behind them. To build a pair:
+No musl build is mirrored, because the releases do not carry one.
+Building the two commands for `x86_64-unknown-linux-musl` does work, and
+yields a pair of static binaries with no glibc floor at all, but those
+would be the only artifacts in this repository with no upstream signature
+behind them. To build a pair:
 
 ```bash
 apt-get install -y musl-tools
 rustup target add x86_64-unknown-linux-musl
 CC_x86_64_unknown_linux_musl=musl-gcc \
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc \
-  cargo install --locked --version 6.4.0 \
+  cargo install --locked --version "$version" \
     --target x86_64-unknown-linux-musl \
     cargo-dylint dylint-link
 ```
 
 ## Licence
 
-Dylint is MIT OR Apache-2.0. Both texts sit beside this file, taken from
-the `v6.4.0` tag.
+Dylint is MIT OR Apache-2.0, and both texts sit beside this file.
