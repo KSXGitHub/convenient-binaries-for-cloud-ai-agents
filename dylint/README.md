@@ -118,6 +118,36 @@ Each key came from `package.metadata.binstall.signing.pubkey` in that
 version's `Cargo.toml` on crates.io, which is where `cargo-binstall`
 reads it from.
 
+### What the signature does and does not establish
+
+It is worth being exact, because "signature verified" sounds like more
+than this is.
+
+Every Dylint release signs with a different key. Seven consecutive
+versions, 6.0.1 through 6.4.0, carry seven unrelated public keys, so
+there is no long-lived key to pin and no way to recognise the signer
+across releases. The key in each directory also came from the same
+crates.io metadata as the release it verifies, rather than from an
+independent channel.
+
+So checking it binds the GitHub release asset to whoever published that
+version's crate to crates.io. That catches a corrupted download, and a
+release asset swapped by someone who could not also republish the crate.
+It is not proof of anyone's identity, and it would not survive a
+compromised release pipeline. Trusting these binaries means trusting
+the Dylint project and crates.io, which is the same trust
+`cargo install cargo-dylint` asks for, and that fetches over no
+signature at all.
+
+The stronger anchor is the sigstore attestation GitHub attaches to each
+release, which ties an artifact to the workflow that built it rather than
+to a bare key. It is served only from the GitHub API, which was blocked
+in the sandbox that assembled this mirror, so it is absent here.
+
+What the mirror itself adds is immutability. A GitHub release asset can
+be deleted and re-uploaded under the same name; these bytes are frozen
+under a git commit, at digests recorded when they were reviewed.
+
 That signature covers a hash of the tarball, so it subsumes the
 `.sha256`, which is mirrored for completeness rather than because
 checking it adds anything. It comes in two layouts, since the 6.3.x and
