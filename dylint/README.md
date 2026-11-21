@@ -55,32 +55,25 @@ container, and another cost the mirror does not remove.
 `cargo dylint` also wants `git`, and a C linker reachable as `cc`, which
 `dylint-link` execs.
 
-## What the mirrored signatures are worth
+## What trusting these costs
 
-Each version directory carries the `.sha256` and `.sig` the release
-publishes, and the `minisign.pub` matching that release's key. They are
-here because a faithful mirror carries what upstream published, not
-because checking them here would establish much.
+Upstream signs its release assets with minisign. Neither those
+signatures nor their keys are kept here, because a copy of both sitting
+in one directory answers only to itself: anyone able to rewrite a
+tarball can re-sign it with a key of their own and replace the public
+half beside it, after which the check passes. Verified properly, a
+signature is a question put to crates.io, where the key that release
+designated is published, and that question can be asked there without a
+copy kept in this repository.
 
-Checking them here establishes nothing on its own, in fact. Both are
-checked against data this same directory supplies, so anyone able to
-rewrite a tarball can rewrite its digest, re-sign it with a key of their
-own and overwrite `minisign.pub` with the matching public half, after
-which every such check passes. Only a question put to a server has
-force: comparing a key against
-`package.metadata.binstall.signing.pubkey` in that version's
-`Cargo.toml` on crates.io, or asking GitHub's attestation API which
-workflow built the bytes. Each release signs with its own unrelated key,
-which is why a key sits in every version directory rather than once at
-the top of this one, and why there is none to pin across releases.
-
-Even checked against crates.io the signature establishes less than it
-sounds like. crates.io hosts source, not binaries, so a key published
-there is a claim about which key signs the binaries, made by whoever can
-publish the crate. A verified signature therefore says a key designated
-from the source signed these bytes. It says nothing about them having
-been built from that source, because no part of that scheme records how
-they were produced. Only the attestation does.
+A signature settles less than it sounds like anyway. crates.io hosts
+source, not binaries, so a key published there is a claim about which
+key signs the binaries, made by whoever can publish the crate. The most
+a verified signature says is that a key designated from the source
+signed these bytes, and nothing about them having been built from that
+source, because no part of that scheme records how they were produced.
+The attestation GitHub attaches to a release does record it, and is the
+only thing here that would.
 
 So a prebuilt binary asks for strictly more trust than a source install
 does. `cargo install cargo-dylint` trusts crates.io and your own
@@ -91,8 +84,8 @@ directory.
 
 What the mirror itself adds is immutability. A GitHub release asset can
 be deleted and re-uploaded under the same name; these bytes are frozen
-under a git commit, at digests recorded when they were reviewed, which
-is the point at which they are worth checking against upstream.
+under a git commit, so whatever was established about them when they
+were added stays established.
 
 ## Architecture and glibc floor
 
@@ -109,8 +102,8 @@ container can run these. A later release may raise it again.
 No musl build is mirrored, because the releases do not carry one.
 Building the two commands for `x86_64-unknown-linux-musl` does work, and
 yields a pair of static binaries with no glibc floor at all, but those
-would be the only artifacts in this repository with no upstream signature
-behind them. To build a pair:
+would be the only files here that upstream never published, built rather
+than mirrored, and so outside everything said above. To build a pair:
 
 ```bash
 version=6.4.0
