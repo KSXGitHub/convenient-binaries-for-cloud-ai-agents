@@ -3,10 +3,10 @@
 [Creusot](https://github.com/creusot-rs/creusot) is a deductive verifier for Rust.
 It provides the `cargo creusot` subcommand.
 
-Upstream publishes no binary releases, so these tarballs are built from source by
-[`../build.sh`](../build.sh) — which is both how they were made and how to remake
-them: it is deterministic down to the [`SHA256SUMS`](SHA256SUMS) beside them. The
-source is tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`.
+Upstream publishes no binary releases, so this tarball is built from source by
+[`../build.sh`](../build.sh) — which is both how it was made and how to remake it:
+it is deterministic down to the [`SHA256SUMS`](SHA256SUMS) beside it. The source
+is tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`.
 
 The binaries need glibc 2.34 or newer. Only glibc is built: `creusot-rustc` is a
 rustc driver and runs only against the Rust toolchain it was compiled against, so
@@ -16,23 +16,25 @@ toolchain.
 ## Use
 
 ```bash
-mkdir -p /opt/creusot
-tar xf creusot-0.15.0-x86_64-unknown-linux-gnu.tar.gz -C /opt/creusot
-export PATH=/opt/creusot/bin:$PATH
-export CREUSOT_DATA_HOME=/opt/creusot
-export CREUSOT_PATH=/opt/creusot/share
-export CREUSOT_RUSTC=/opt/creusot/bin/creusot-rustc
+creusot/install.sh
 ```
 
-`creusot-rustc` loads `librustc_driver` out of the toolchain it was built with, so
-that toolchain has to be installed and on the library path:
+[`install.sh`](../install.sh) is Creusot's own `./INSTALL` without the part that
+compiles the workspace. It installs the pinned nightly with `--profile minimal`,
+unpacks the binaries and the Why3 prelude where `cargo creusot` looks for them by
+default, and downloads the SMT solvers — so afterwards `cargo creusot` needs no
+environment variables, only `~/.cargo/bin` on `PATH`.
 
-```bash
-rustup toolchain install nightly-2026-08-03 --profile minimal -c rustfmt -c rustc-dev -c llvm-tools
-rustup run nightly-2026-08-03 cargo creusot --only coma
-```
+Proving also needs Why3 and why3find, which are built from source by opam and are
+the slow part of any Creusot install. Pass `--why3` to do that too;
+`cargo creusot --only coma` works without them.
 
-`creusot-install provers` downloads the SMT solvers into `$CREUSOT_DATA_HOME/bin`.
-Why3 is not in the tarball; see the
-[Creusot guide](https://guide.creusot.rs/installation.html) for it and for
-everything about using Creusot itself.
+To place the files by hand instead: `cargo-creusot` on `PATH`, `creusot-rustc` in
+`$CREUSOT_DATA_HOME/toolchains/nightly-2026-08-03/bin/`, and the tarball's
+`share/why3find/packages`, `why3find.json` and `creusot_why3.conf` under
+`$CREUSOT_DATA_HOME`. The `share/creusot-std` sources are only consulted through
+`CREUSOT_PATH` against a development build of Creusot, so a released version does
+not need them.
+
+See the [Creusot guide](https://guide.creusot.rs/installation.html) for everything
+about using Creusot itself.
