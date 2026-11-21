@@ -8,12 +8,12 @@ repository these tarballs are built from source by [`build.sh`](build.sh).
 
 ## 0.15.0
 
-| | |
-|---|---|
-| Source | `https://github.com/creusot-rs/creusot` tag `v0.15.0` |
-| Commit | `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17` |
+|                |                                                             |
+|----------------|-------------------------------------------------------------|
+| Source         | `https://github.com/creusot-rs/creusot` tag `v0.15.0`       |
+| Commit         | `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`                  |
 | Rust toolchain | `nightly-2026-08-03` (`rustfmt`, `rustc-dev`, `llvm-tools`) |
-| Built with | `./build.sh 0.15.0 <target>` |
+| Built with     | `./build.sh 0.15.0 <target>`                                |
 
 The build is reproducible: run `build.sh` again with the same `BUILD_ROOT` and it
 produces tarballs with the checksums in [`0.15.0/SHA256SUMS`](0.15.0/SHA256SUMS),
