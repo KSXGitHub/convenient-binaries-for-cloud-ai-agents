@@ -30,11 +30,11 @@ mirror removes is only the cost of the two commands.
 
 Take the version the consuming project already pins:
 
-| Version | Pinned by |
-| ------- | --------- |
-| 6.3.0 | `pnpm`, in the `dylint` job of `.github/workflows/pacquet-ci.yml` |
-| 6.3.2 | `parallel-disk-usage` and `my-translated-lyrics`, in `dylint-version` |
-| 6.4.0 | `perfectionist`, as the `dylint_linting` dependency in `Cargo.toml` |
+| Version | Pinned by                                                             |
+| ------- | --------------------------------------------------------------------- |
+| 6.3.0   | `pnpm`, in the `dylint` job of `.github/workflows/pacquet-ci.yml`     |
+| 6.3.2   | `parallel-disk-usage` and `my-translated-lyrics`, in `dylint-version` |
+| 6.4.0   | `perfectionist`, as the `dylint_linting` dependency in `Cargo.toml`   |
 
 Keep `cargo-dylint` and `dylint-link` on the same version. They are
 released together under one tag.
@@ -102,11 +102,11 @@ each Dylint release signs with its own key, published as
 `package.metadata.binstall.signing.pubkey` in that version's `Cargo.toml`
 on crates.io:
 
-| Version | Public key |
-| ------- | ---------- |
-| 6.3.0 | `RWSXVkGJeTMuN3x0cx2IJ1Y9H9NIApDmWgH602XAL8NCnSczrmPtAUIY` |
-| 6.3.2 | `RWRdbyRNO+/QGkBEsymvSLVXe9ifZ871+evIixu0rPcejKR2BynubvL5` |
-| 6.4.0 | `RWTli65d9uuuE9wjVkK8JxFzblxCXVPyFx1cyisJOXwxmpepKoGk43+Q` |
+| Version | Public key                                                 |
+| ------- | ---------------------------------------------------------- |
+| 6.3.0   | `RWSXVkGJeTMuN3x0cx2IJ1Y9H9NIApDmWgH602XAL8NCnSczrmPtAUIY` |
+| 6.3.2   | `RWRdbyRNO+/QGkBEsymvSLVXe9ifZ871+evIixu0rPcejKR2BynubvL5` |
+| 6.4.0   | `RWTli65d9uuuE9wjVkK8JxFzblxCXVPyFx1cyisJOXwxmpepKoGk43+Q` |
 
 The `.sha256` files are written in two different formats, because the
 6.3.x and 6.4.0 releases were cut by different runners: 6.3.0 and 6.3.2
