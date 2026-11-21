@@ -97,21 +97,33 @@ same as a source install does.
 ## Verifying
 
 Every tarball comes with the `.sha256` and `.sig` files the release
-publishes. The signature is [minisign](https://jedisct1.github.io/minisign/);
-each Dylint release signs with its own key, published as
-`package.metadata.binstall.signing.pubkey` in that version's `Cargo.toml`
-on crates.io:
+publishes. The signature is
+[minisign](https://jedisct1.github.io/minisign/), and each Dylint release
+signs with its own key, so every version directory carries the one that
+signed it as `minisign.pub`:
 
-| Version | Public key                                                 |
-| ------- | ---------------------------------------------------------- |
-| 6.3.0   | `RWSXVkGJeTMuN3x0cx2IJ1Y9H9NIApDmWgH602XAL8NCnSczrmPtAUIY` |
-| 6.3.2   | `RWRdbyRNO+/QGkBEsymvSLVXe9ifZ871+evIixu0rPcejKR2BynubvL5` |
-| 6.4.0   | `RWTli65d9uuuE9wjVkK8JxFzblxCXVPyFx1cyisJOXwxmpepKoGk43+Q` |
+```bash
+version=6.4.0
+cd "dylint/$version"
+for bin in cargo-dylint dylint-link; do
+  f="$bin-x86_64-unknown-linux-gnu-v$version.tar.gz"
+  minisign -V -p minisign.pub -m "$f" -x "$f.sig"
+done
+```
 
-The `.sha256` files are written in two different formats, because the
-6.3.x and 6.4.0 releases were cut by different runners: 6.3.0 and 6.3.2
-use the `coreutils` layout, and 6.4.0 the BSD `SHA2-256(file)= hash`
-layout. Both are mirrored as published.
+`-x` is needed because `minisign` looks for `<file>.minisig` by default
+and the release names it `<file>.sig`.
+
+Each key came from `package.metadata.binstall.signing.pubkey` in that
+version's `Cargo.toml` on crates.io, which is where `cargo-binstall`
+reads it from.
+
+That signature covers a hash of the tarball, so it subsumes the
+`.sha256`, which is mirrored for completeness rather than because
+checking it adds anything. It comes in two layouts, since the 6.3.x and
+6.4.0 releases were cut by different runners: 6.3.0 and 6.3.2 use the
+`coreutils` one that `sha256sum --check` reads, and 6.4.0 the BSD
+`SHA2-256(file)= hash` one, which it does not.
 
 ## Architecture and glibc floor
 
