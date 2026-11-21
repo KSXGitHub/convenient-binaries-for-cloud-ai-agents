@@ -55,46 +55,32 @@ container, and another cost the mirror does not remove.
 `cargo dylint` also wants `git`, and a C linker reachable as `cc`, which
 `dylint-link` execs.
 
-## Verifying
+## What the mirrored signatures are worth
 
-Run this, against the mirrored file itself:
+Each version directory carries the `.sha256` and `.sig` the release
+publishes, and the `minisign.pub` matching that release's key. They are
+here because a faithful mirror carries what upstream published, not
+because checking them here would establish much.
 
-```bash
-gh attestation verify \
-  dylint/6.4.0/cargo-dylint-x86_64-unknown-linux-gnu-v6.4.0.tar.gz \
-  --repo trailofbits/dylint
-```
-
-It is the only check worth the name, because it is the only one that
-reaches past this repository. It asks GitHub what workflow built those
-bytes, and no edit made here can change the answer.
-
-Nothing computed purely from this directory can stand in for it. The
-`.sha256` and the `.sig` are mirrored because the release publishes
-them, but both are checked against data this same directory supplies, so
-anyone who can rewrite a tarball can rewrite its digest, re-sign it with
-a key of their own, and overwrite `minisign.pub` with the matching
-public half. Every such check then passes. A script that ran them and
-reported success would be measuring this repository against itself.
-
-The `minisign.pub` files are still worth having, for the one workflow
-that does break that circle: compare a key against
+Checking them here establishes nothing on its own, in fact. Both are
+checked against data this same directory supplies, so anyone able to
+rewrite a tarball can rewrite its digest, re-sign it with a key of their
+own and overwrite `minisign.pub` with the matching public half, after
+which every such check passes. Only a question put to a server has
+force: comparing a key against
 `package.metadata.binstall.signing.pubkey` in that version's
-`Cargo.toml` on crates.io, which is where `cargo-binstall` reads it
-from. That comparison, like the attestation, is a question put to a
-server rather than to these files, which is what gives it force. Each
-release signs with its own unrelated key, which is why a key sits in
-every version directory rather than once at the top of this one, and
-why there is none to pin across releases.
+`Cargo.toml` on crates.io, or asking GitHub's attestation API which
+workflow built the bytes. Each release signs with its own unrelated key,
+which is why a key sits in every version directory rather than once at
+the top of this one, and why there is none to pin across releases.
 
-Even checked that way the signature establishes less than it sounds
-like. crates.io hosts source, not binaries, so a key published there is
-a claim about which key signs the binaries, made by whoever can publish
-the crate. A verified signature therefore says a key designated from the
-source signed these bytes. It says nothing about them having been built
-from that source, because no part of the scheme records how they were
-produced. Only the attestation does, which is why it is the one command
-above.
+Even checked against crates.io the signature establishes less than it
+sounds like. crates.io hosts source, not binaries, so a key published
+there is a claim about which key signs the binaries, made by whoever can
+publish the crate. A verified signature therefore says a key designated
+from the source signed these bytes. It says nothing about them having
+been built from that source, because no part of that scheme records how
+they were produced. Only the attestation does.
 
 So a prebuilt binary asks for strictly more trust than a source install
 does. `cargo install cargo-dylint` trusts crates.io and your own
@@ -105,7 +91,8 @@ directory.
 
 What the mirror itself adds is immutability. A GitHub release asset can
 be deleted and re-uploaded under the same name; these bytes are frozen
-under a git commit, at digests recorded when they were reviewed.
+under a git commit, at digests recorded when they were reviewed, which
+is the point at which they are worth checking against upstream.
 
 ## Architecture and glibc floor
 
@@ -113,16 +100,11 @@ These are `x86_64` only, and built against glibc. The releases carry
 other targets that are not mirrored here, so check the releases page
 before concluding a platform is unserved.
 
-Each binary refuses to start below the glibc its release was built
-against, and that floor is high enough to exclude container images still
-in common use. Rather than write the number down, where moving an
-upstream build runner would leave it stale, read it off the binary and
-compare it against `ldd --version`:
-
-```bash
-objdump -T path/to/cargo-dylint \
-  | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -uV | tail -1
-```
+Every binary mirrored here needs **glibc 2.39 or newer**, measured off
+the committed files, which cannot drift because those files do not. That
+floor is recent enough to exclude container images still in common use,
+so it is worth comparing against `ldd --version` before assuming a
+container can run these. A later release may raise it again.
 
 No musl build is mirrored, because the releases do not carry one.
 Building the two commands for `x86_64-unknown-linux-musl` does work, and
