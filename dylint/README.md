@@ -27,32 +27,6 @@ The mirror saves only the two `cargo install` runs. A cold `cargo dylint`
 still builds the driver and the lint library, and still fetches that
 toolchain.
 
-## Provenance
-
-These are upstream's release assets, not built here, and their build
-provenance is not verified in this repository. Where the GitHub API is
-reachable, `gh attestation verify <tarball> --repo trailofbits/dylint`
-checks it. To avoid trusting a prebuilt binary at all, run
-`cargo install --locked cargo-dylint dylint-link` instead and pay the
-build.
-
-## No musl or arm64 build
-
-The releases carry an `aarch64-unknown-linux-gnu` target that is not
-mirrored here, and no musl target at all. Building the pair against musl
-works, and removes the glibc floor:
-
-```bash
-version=6.4.0
-apt-get install -y musl-tools
-rustup target add x86_64-unknown-linux-musl
-CC_x86_64_unknown_linux_musl=musl-gcc \
-CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc \
-  cargo install --locked --version "$version" \
-    --target x86_64-unknown-linux-musl \
-    cargo-dylint dylint-link
-```
-
 ## Licence
 
 Dylint is MIT OR Apache-2.0, and both texts sit beside this file.
