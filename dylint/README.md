@@ -5,7 +5,8 @@ mirrored byte-for-byte from the
 [Dylint releases](https://github.com/trailofbits/dylint/releases).
 
 These two commands are what a Dylint lint library needs in order to be
-built and run.
+built and run. Each tarball holds one binary under a top-level
+directory, so `--strip-components=1` extracts it straight onto `PATH`.
 
 ## Why mirror them
 
@@ -51,89 +52,49 @@ needs `rustc-dev` at least, and often `rust-src` and
 `llvm-tools-preview` besides, which is a sizeable download on a cold
 container, and another cost the mirror does not remove.
 
-## Using them
-
-Each tarball holds a single binary under a top-level directory, so
-`--strip-components=1` drops it straight into a directory on `PATH`:
-
-```bash
-version=6.4.0
-dest=~/.local/bin
-mkdir -p "$dest"
-for bin in cargo-dylint dylint-link; do
-  tar -xzf "dylint/$version/$bin-x86_64-unknown-linux-gnu-v$version.tar.gz" \
-    -C "$dest" --strip-components=1
-done
-```
-
-Without a checkout of this repository, pipe them in instead:
-
-```bash
-version=6.4.0
-dest=~/.local/bin
-base=https://raw.githubusercontent.com/KSXGitHub/convenient-binaries-for-cloud-ai-agents/HEAD
-mkdir -p "$dest"
-for bin in cargo-dylint dylint-link; do
-  curl -sSL "$base/dylint/$version/$bin-x86_64-unknown-linux-gnu-v$version.tar.gz" \
-    | tar -xz -C "$dest" --strip-components=1
-done
-```
-
-`cargo dylint` also needs `git` and a C linker reachable as `cc`, the
-same as a source install does.
+`cargo dylint` also wants `git`, and a C linker reachable as `cc`, which
+`dylint-link` execs.
 
 ## Verifying
 
-`verify.sh` runs every check this mirror can offer, over one version or
-all of them:
+Run this, against the mirrored file itself:
 
 ```bash
-dylint/verify.sh          # every mirrored version
-dylint/verify.sh 6.4.0    # one of them
+gh attestation verify \
+  dylint/6.4.0/cargo-dylint-x86_64-unknown-linux-gnu-v6.4.0.tar.gz \
+  --repo trailofbits/dylint
 ```
 
-It names any check it had to skip rather than passing quietly, and fails
-if a check that did run failed. The checks, weakest first:
+It is the only check worth the name, because it is the only one that
+reaches past this repository. It asks GitHub what workflow built those
+bytes, and no edit made here can change the answer.
 
-- **The published digest**, from the `.sha256` beside each tarball.
-  Catches a damaged file.
-- **The minisign signature**, from the `.sig`, against the
-  `minisign.pub` in that version's directory. Needs
-  [minisign](https://jedisct1.github.io/minisign/).
-- **The bytes GitHub serves now**, re-downloaded and compared, which
-  shows this mirror holds upstream's release and not someone else's.
-  Set `SKIP_NETWORK=true` to leave it out.
-- **The build provenance**, via `gh attestation verify`. This is the
-  only check that says where a binary came from rather than who vouched
-  for it, and it needs GitHub API access that a sandboxed agent often
-  does not have.
+Nothing computed purely from this directory can stand in for it. The
+`.sha256` and the `.sig` are mirrored because the release publishes
+them, but both are checked against data this same directory supplies, so
+anyone who can rewrite a tarball can rewrite its digest, re-sign it with
+a key of their own, and overwrite `minisign.pub` with the matching
+public half. Every such check then passes. A script that ran them and
+reported success would be measuring this repository against itself.
 
-### What the signature does and does not establish
-
-It is worth being exact, because "signature verified" sounds like more
-than this is.
-
-Each version mirrored here carries its own signing key, unrelated to the
-rest, which is why the key sits in the version directory rather than at
-the top of this one. So there is no long-lived key to pin and no way to
-recognise a signer across releases. Each key also came from
+The `minisign.pub` files are still worth having, for the one workflow
+that does break that circle: compare a key against
 `package.metadata.binstall.signing.pubkey` in that version's
-`Cargo.toml` on crates.io, which is where `cargo-binstall` reads it from,
-rather than from a channel independent of the release itself.
+`Cargo.toml` on crates.io, which is where `cargo-binstall` reads it
+from. That comparison, like the attestation, is a question put to a
+server rather than to these files, which is what gives it force. Each
+release signs with its own unrelated key, which is why a key sits in
+every version directory rather than once at the top of this one, and
+why there is none to pin across releases.
 
-Note what crates.io is carrying there. It hosts source, not binaries, so
-that key is a claim about which key signs the binaries, made by whoever
-can publish the crate. The check therefore says a key designated from
-the source signed this binary. It says nothing about the binary having
-been built from that source, because no part of the scheme records how
-the binary was produced.
-
-That is the property a mirror of binaries most wants, and only the
-attestation supplies it. What a verified signature catches is a
-corrupted download, and a release asset tampered with after publication
-by someone who could not also republish the crate. It is not proof of
-anyone's identity, and it would not survive a compromised release
-pipeline.
+Even checked that way the signature establishes less than it sounds
+like. crates.io hosts source, not binaries, so a key published there is
+a claim about which key signs the binaries, made by whoever can publish
+the crate. A verified signature therefore says a key designated from the
+source signed these bytes. It says nothing about them having been built
+from that source, because no part of the scheme records how they were
+produced. Only the attestation does, which is why it is the one command
+above.
 
 So a prebuilt binary asks for strictly more trust than a source install
 does. `cargo install cargo-dylint` trusts crates.io and your own
@@ -154,9 +115,14 @@ before concluding a platform is unserved.
 
 Each binary refuses to start below the glibc its release was built
 against, and that floor is high enough to exclude container images still
-in common use. `verify.sh` reads it off the binaries and prints it beside
-the glibc of the machine running it, so there is no number here to go
-stale against an upstream that moves its build runner.
+in common use. Rather than write the number down, where moving an
+upstream build runner would leave it stale, read it off the binary and
+compare it against `ldd --version`:
+
+```bash
+objdump -T path/to/cargo-dylint \
+  | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -uV | tail -1
+```
 
 No musl build is mirrored, because the releases do not carry one.
 Building the two commands for `x86_64-unknown-linux-musl` does work, and
@@ -165,6 +131,7 @@ would be the only artifacts in this repository with no upstream signature
 behind them. To build a pair:
 
 ```bash
+version=6.4.0
 apt-get install -y musl-tools
 rustup target add x86_64-unknown-linux-musl
 CC_x86_64_unknown_linux_musl=musl-gcc \
