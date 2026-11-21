@@ -1,21 +1,18 @@
-# Creusot
+# Creusot 0.15.0
 
 [Creusot](https://github.com/creusot-rs/creusot) is a deductive verifier for Rust.
 It provides the `cargo creusot` subcommand.
 
 Upstream publishes no binary releases, so these tarballs are built from source by
-[`build.sh`](build.sh) — which is both how they were made and how to remake them:
-it is deterministic down to the `SHA256SUMS` beside them.
-
-## 0.15.0
-
-Built from tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`.
+[`../build.sh`](../build.sh) — which is both how they were made and how to remake
+them: it is deterministic down to the [`SHA256SUMS`](SHA256SUMS) beside them. The
+source is tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`.
 
 The glibc binaries need glibc 2.34 or newer. The musl tarball has no
 `creusot-rustc`, because rustup ships the `rustc-dev` that a rustc driver is built
 against for the host triple only.
 
-### Use
+## Use
 
 ```bash
 mkdir -p /opt/creusot
