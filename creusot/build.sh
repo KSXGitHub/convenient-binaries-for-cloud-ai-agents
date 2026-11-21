@@ -34,13 +34,15 @@ COMPONENTS=$(sed -n 's/^components *= *\[\(.*\)\]/\1/p' rust-toolchain | tr -d '
 rustup toolchain install "$CHANNEL" --profile minimal --no-self-update $(printf -- '-c %s ' $COMPONENTS)
 rustup target add --toolchain "$CHANNEL" "$TARGET"
 
+HOST=$(rustc -vV | sed -n 's/^host: //p')
+
 # `creusot-rustc` is a rustc driver: it is compiled against `rustc-dev` and loads
 # `librustc_driver-<hash>.so` out of the toolchain at run time. rustup ships
 # `rustc-dev` for the host triple only, so `creusot-rustc` can be built for the
 # host's own triple and for no other. `creusot-dev-config` is a helper for hacking
 # on Creusot itself and is deliberately not shipped.
-PACKAGES=(-p cargo-creusot -p creusot-install -p prelude-generator)
-if [ "$TARGET" = "$(rustc -vV | sed -n 's/^host: //p')" ]; then
+PACKAGES=(-p cargo-creusot -p creusot-install)
+if [ "$TARGET" = "$HOST" ]; then
   PACKAGES+=(-p creusot-rustc)
 fi
 
@@ -51,11 +53,15 @@ export CARGO_TARGET_DIR="$BUILD_ROOT/v$VERSION/target"
 export RUSTFLAGS="--remap-path-prefix=$SRC=/build/creusot --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/build/cargo"
 
 cargo "+$CHANNEL" build --release --locked --target "$TARGET" "${PACKAGES[@]}"
+# `prelude-generator` only runs here, to generate the prelude below, and is not
+# shipped: nothing in Creusot invokes it at run time, and the templates it reads
+# live in the source tree. So build it for the host, where it is sure to run.
+cargo "+$CHANNEL" build --release --locked --target "$HOST" -p prelude-generator
 
 BIN=$CARGO_TARGET_DIR/$TARGET/release
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR/bin" "$OUTDIR/share"
-for b in cargo-creusot creusot-install prelude-generator creusot-rustc; do
+for b in cargo-creusot creusot-install creusot-rustc; do
   [ -f "$BIN/$b" ] || continue
   install -m 755 "$BIN/$b" "$OUTDIR/bin/$b"
   strip "$OUTDIR/bin/$b"
@@ -71,7 +77,7 @@ cp -r creusot-std creusot-std-proc pearlite-syn "$OUTDIR/share/"
 # templates in prelude-generator/. Shipping it saves the user a second build, and
 # puts it where why3find looks (CREUSOT_DATA_HOME/share/why3find). Mirrors
 # nix/creusot/prelude.nix.
-CARGO_MANIFEST_DIR="$SRC/prelude-generator" "$OUTDIR/bin/prelude-generator"
+CARGO_MANIFEST_DIR="$SRC/prelude-generator" "$CARGO_TARGET_DIR/$HOST/release/prelude-generator"
 mkdir -p "$OUTDIR/share/why3find"
 cp -r "$SRC/target/creusot/packages" "$OUTDIR/share/why3find/"
 
