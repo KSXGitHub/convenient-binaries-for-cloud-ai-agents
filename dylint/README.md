@@ -57,14 +57,15 @@ container, and another cost the mirror does not remove.
 
 ## What trusting these costs
 
-Upstream signs its release assets with minisign. Neither those
-signatures nor their keys are kept here, because a copy of both sitting
-in one directory answers only to itself: anyone able to rewrite a
-tarball can re-sign it with a key of their own and replace the public
-half beside it, after which the check passes. Verified properly, a
-signature is a question put to crates.io, where the key that release
-designated is published, and that question can be asked there without a
-copy kept in this repository.
+Upstream publishes a digest and a minisign signature beside each release
+asset. None of the three is kept here, the signature's key included,
+because anything checked against a file in the same directory answers
+only to itself: whoever can rewrite a tarball can rewrite its digest,
+re-sign it with a key of their own and replace the public half beside
+it, after which every such check passes. Verified properly, a signature
+is a question put to crates.io, where the key that release designated is
+published, and that question can be asked there without a copy kept in
+this repository.
 
 A signature settles less than it sounds like anyway. crates.io hosts
 source, not binaries, so a key published there is a claim about which
