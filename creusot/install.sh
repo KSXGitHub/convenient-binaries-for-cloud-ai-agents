@@ -29,6 +29,11 @@ set -euo pipefail
 
 usage() { sed -n '2,8p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
+# This script only unpacks prebuilt binaries. It never builds Creusot, and when
+# it cannot do its job it says so and stops -- it does not quietly turn into a
+# rustc-dev download and a workspace compile, and it does not advise one either.
+die() { echo "install.sh: $1" >&2; exit 1; }
+
 VERSION=
 PROVERS=1
 WHY3=0
@@ -46,19 +51,19 @@ HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 if [ -z "$VERSION" ]; then
   VERSION=$(cd "$HERE" && ls -d [0-9]*/ 2>/dev/null | tr -d / | sort -V | tail -1)
 fi
-[ -n "$VERSION" ] || { echo "install.sh: no version directory found in $HERE" >&2; exit 1; }
+[ -n "$VERSION" ] || die "no version directory found in $HERE"
 
 # Only x86_64 glibc Linux is built here; see this version's README.md for why.
 [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] && [ -e /lib64/ld-linux-x86-64.so.2 ] || {
-  echo "install.sh: these binaries are x86_64 Linux (glibc) only; this is $(uname -s)/$(uname -m)" >&2
-  exit 1
+  die "x86_64 Linux (glibc) binaries only; this is $(uname -s)/$(uname -m)"
 }
-command -v rustup >/dev/null || { echo "install.sh: rustup is required; see https://rustup.rs" >&2; exit 1; }
+command -v rustup >/dev/null || die "rustup not found"
 
 TARBALL=$HERE/$VERSION/creusot-$VERSION-x86_64-unknown-linux-gnu.tar.gz
-[ -f "$TARBALL" ] || { echo "install.sh: no tarball at $TARBALL" >&2; exit 1; }
+[ -f "$TARBALL" ] || die "no tarball at $TARBALL"
 if [ -f "$HERE/$VERSION/SHA256SUMS" ]; then
-  (cd "$HERE/$VERSION" && sha256sum --check --quiet --ignore-missing SHA256SUMS)
+  (cd "$HERE/$VERSION" && sha256sum --check --quiet --ignore-missing SHA256SUMS) ||
+    die "$TARBALL does not match SHA256SUMS"
 fi
 
 TMP=$(mktemp -d)
@@ -67,7 +72,7 @@ tar -xf "$TARBALL" -C "$TMP"
 
 # The binary knows which nightly it was built against, so nothing is hardcoded.
 CHANNEL=$("$TMP/bin/cargo-creusot" creusot version 2>/dev/null | sed -n 's/^Rust toolchain //p' | head -1 || true)
-[ -n "$CHANNEL" ] || { echo "install.sh: could not read the toolchain from cargo-creusot" >&2; exit 1; }
+[ -n "$CHANNEL" ] || die "could not read the toolchain channel from the shipped cargo-creusot"
 
 DATA=${CREUSOT_DATA_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/creusot}
 BIN=${CARGO_HOME:-$HOME/.cargo}/bin
@@ -97,22 +102,27 @@ if [ "$PROVERS" = 1 ]; then
 fi
 
 if [ "$WHY3" = 1 ]; then
-  command -v opam >/dev/null || { echo "install.sh: --why3 needs opam; see https://opam.ocaml.org" >&2; exit 1; }
+  command -v opam >/dev/null || die "opam not found"
   # This is the one step no prebuilt binary helps with: it compiles OCaml and
   # Why3 from source, and takes far longer than everything above put together.
-  cp "$TMP/creusot-deps.opam" "$DATA/creusot-deps.opam"
-  if ! opam switch create -y "$DATA"; then
-    cat >&2 <<'EOF'
-install.sh: opam could not create the switch. It usually means system packages
-are missing -- opam prints the command for them above, and declines to run your
-package manager on its own. On Debian or Ubuntu they are typically:
-
-    apt-get install libgmp-dev zlib1g-dev pkg-config
-
-Install those, then re-run this script with --why3.
-EOF
-    exit 1
+  if ! opam switch list >/dev/null 2>&1; then
+    echo "install.sh: opam is not initialised yet; running 'opam init --bare -y'"
+    opam init --bare -y || die "'opam init' failed"
   fi
+  cp "$TMP/creusot-deps.opam" "$DATA/creusot-deps.opam"
+  why3_failed() { die "opam could not build the switch"; }
+  # creusot-deps.opam also asks for why3-ide, Why3's GTK front end, unless the
+  # variable `in-creusot-ci` is defined -- and its lablgtk3 dependencies then want
+  # system GTK development packages, which a headless machine has no reason to
+  # carry. So create the switch empty, define the variable on it, and install the
+  # dependencies after. Upstream's CI defines the same variable globally; keeping
+  # it on this switch leaves the rest of opam alone. The cost is that
+  # `cargo creusot why3`, which opens that GUI, will not work.
+  if [ ! -d "$DATA/_opam" ]; then
+    opam switch create -y --empty "$DATA" || why3_failed
+    opam var in-creusot-ci=true --switch "$DATA" >/dev/null || why3_failed
+  fi
+  opam install -y --switch "$DATA" "$DATA" || why3_failed
   ln -sf "$DATA/_opam/bin/why3" "$DATA/bin/why3"
   ln -sf "$DATA/_opam/bin/why3find" "$DATA/bin/why3find"
 fi
@@ -121,8 +131,7 @@ echo
 echo "installed creusot $VERSION"
 echo "  $BIN must be on PATH; then 'cargo creusot --help'"
 [ "$PROVERS" = 1 ] || echo "  solvers: run 'creusot-install provers'"
-[ "$WHY3" = 1 ] || cat <<EOF
-  Why3 and why3find are not installed; 'cargo creusot --only coma' works without
-  them, proving does not. Re-run with --why3 (needs opam), or see
-  https://guide.creusot.rs/installation.html
+[ "$WHY3" = 1 ] || cat <<'EOF'
+  Why3 and why3find are not installed: 'cargo creusot --only coma' works,
+  proving does not. Re-run with --why3 for them.
 EOF
