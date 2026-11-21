@@ -130,14 +130,26 @@ across releases. The key in each directory also came from the same
 crates.io metadata as the release it verifies, rather than from an
 independent channel.
 
-So checking it binds the GitHub release asset to whoever published that
-version's crate to crates.io. That catches a corrupted download, and a
-release asset swapped by someone who could not also republish the crate.
-It is not proof of anyone's identity, and it would not survive a
-compromised release pipeline. Trusting these binaries means trusting
-the Dylint project and crates.io, which is the same trust
-`cargo install cargo-dylint` asks for, and that fetches over no
-signature at all.
+Note also what crates.io is carrying here. It hosts source, not
+binaries, so the key in a published `Cargo.toml` is a claim about which
+key signs the binaries, made by whoever can publish that crate. The
+check therefore says a key designated from the source signed this
+binary. It says nothing about the binary having been built from that
+source, because no part of the scheme records how the binary was
+produced.
+
+That is the property a mirror of binaries most wants, and this scheme
+does not supply it. What a verified signature catches is a corrupted
+download, and a release asset tampered with after publication by someone
+who could not also republish the crate. It is not proof of anyone's
+identity, and it would not survive a compromised release pipeline.
+
+So a prebuilt binary asks for strictly more trust than a source install
+does. `cargo install cargo-dylint` trusts crates.io and your own
+compiler; taking the binary trusts the Dylint release pipeline to have
+built it honestly from that source, on top. Where that is too much, the
+fallback is to build from the same crates.io source and ignore this
+directory.
 
 The stronger anchor is the sigstore attestation GitHub attaches to each
 release, which ties an artifact to the workflow that built it rather than
