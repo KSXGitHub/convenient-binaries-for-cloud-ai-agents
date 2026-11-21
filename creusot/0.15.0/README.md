@@ -8,9 +8,10 @@ Upstream publishes no binary releases, so these tarballs are built from source b
 them: it is deterministic down to the [`SHA256SUMS`](SHA256SUMS) beside them. The
 source is tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`.
 
-The glibc binaries need glibc 2.34 or newer. The musl tarball has no
-`creusot-rustc`, because rustup ships the `rustc-dev` that a rustc driver is built
-against for the host triple only.
+The binaries need glibc 2.34 or newer. Only glibc is built: `creusot-rustc` is a
+rustc driver and runs only against the Rust toolchain it was compiled against, so
+a musl build would have to be made on a musl host and paired with a musl
+toolchain.
 
 ## Use
 
