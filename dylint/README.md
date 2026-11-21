@@ -28,9 +28,7 @@ mirror removes is only the cost of the two commands.
 
 ## Picking a version
 
-`cargo-dylint` must be at least as new as the `dylint_linting` version
-the lint library was built against, so the version to take is the one the
-consuming project pins:
+Take the version the consuming project already pins:
 
 | Version | Pinned by |
 | ------- | --------- |
@@ -40,6 +38,30 @@ consuming project pins:
 
 Keep `cargo-dylint` and `dylint-link` on the same version. They are
 released together under one tag.
+
+Matching the pin is a convenience rather than a requirement. The only
+compatibility gate is in the Dylint driver, which reads the
+`dylint_version` symbol out of the lint library and compares it against
+its own `DYLINT_VERSION`. That constant is the string `0.1.0` in
+`dylint_linting` 6.0.1 and in 6.4.0 alike, so it does not track the crate
+version, and a newer `cargo-dylint` drives an older library. The 6.4.0
+binary here ran a `perfectionist` built against `dylint_linting` 6.0.1
+without complaint.
+
+## What the toolchain has to be
+
+Nothing here pins the consuming project's toolchain. `cargo dylint`
+builds the lint library, and the driver to load it with, under the
+toolchain the *library* asks for, not the one the project lints under:
+linting `parallel-disk-usage`, which is on 1.100.0, built a driver under
+`nightly-2026-05-28` because that is what the pinned `perfectionist`
+revision requires.
+
+So `rustup` has to be present and free to install that toolchain, with
+whatever components the library names. `perfectionist` asks for
+`rustc-dev`, `rust-src` and `llvm-tools-preview`, which is a download of
+some hundreds of megabytes on a cold container, and another cost the
+mirror does not remove.
 
 ## Using them
 
@@ -69,8 +91,8 @@ for bin in cargo-dylint dylint-link; do
 done
 ```
 
-`cargo dylint` also needs `git`, a C linker reachable as `cc`, and a
-`rustup` toolchain, the same as a source install does.
+`cargo dylint` also needs `git` and a C linker reachable as `cc`, the
+same as a source install does.
 
 ## Verifying
 
@@ -91,7 +113,11 @@ The `.sha256` files are written in two different formats, because the
 use the `coreutils` layout, and 6.4.0 the BSD `SHA2-256(file)= hash`
 layout. Both are mirrored as published.
 
-## glibc floor
+## Architecture and glibc floor
+
+These are `x86_64` only. Dylint also publishes
+`aarch64-unknown-linux-gnu`, which is not mirrored here, so an arm64
+container still has to install from source.
 
 Every binary here needs **glibc 2.39 or newer**, the version on the
 Ubuntu 24.04 runner that builds them. They run on Ubuntu 24.04, Debian 13
