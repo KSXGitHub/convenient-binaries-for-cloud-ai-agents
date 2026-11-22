@@ -25,32 +25,16 @@ creusot/install.sh      # --help for the options
 See the [Creusot guide](https://guide.creusot.rs/installation.html) for everything
 about using Creusot itself.
 
-## What it needs to work
+## Prerequisites
 
-`install.sh` arranges all of this; the list is for installing by hand, or for
-working out why an install misbehaves.
+`install.sh` arranges everything else. These are what it needs from you, or cannot
+do on your behalf.
 
-| requirement                               | what it is for                                                   |
-|-------------------------------------------|------------------------------------------------------------------|
-| glibc                                     | 2.34 or newer for the Creusot binaries, 2.38 for the Why3 bundle |
-| rustup toolchain                          | `nightly-2026-08-03`, `--profile minimal` is enough              |
-| `/opt/creusot-why3/_opam`                 | where the Why3 bundle must be unpacked, and nowhere else         |
-| `$CARGO_HOME/bin`                         | holds `cargo-creusot`, and must be on `PATH`                     |
-| `$DATA/toolchains/nightly-2026-08-03/bin` | holds `creusot-rustc`                                            |
-| `$DATA/bin`                               | holds `why3`, `why3find` and the four provers                    |
-| `$DATA/share/why3find/packages`           | the Creusot Why3 prelude                                         |
-| `$DATA/creusot_why3.conf`                 | prover configuration                                             |
-| `$DATA/why3find.json`                     | seeds a new project's own copy                                   |
-
-`$DATA` is `$CREUSOT_DATA_HOME`, else `$XDG_DATA_HOME/creusot`, else
-`~/.local/share/creusot`.
-
-**No environment variables are required.** `cargo-creusot` finds `creusot-rustc`
-under `$DATA/toolchains/`, prepends `$DATA/bin` to `PATH` for why3find, and sets
-`RUSTUP_TOOLCHAIN`, `WHY3CONFIG` and `DUNE_DIR_LOCATIONS` itself. Setting
-`CREUSOT_DATA_HOME` moves `$DATA`; `CREUSOT_RUSTC` and `CREUSOT_PATH` override the
-first two rows and are not otherwise needed.
-
-The Why3 bundle's absolute path is not negotiable: `why3` compiles its data
-directory in and ignores both `WHY3DATA` and being moved. `why3 --print-datadir`
-reports the path it will use.
+| prerequisite                                                    | why                                                                                                                                |
+|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| glibc 2.34 or newer; 2.38 for the Why3 bundle                   | the binaries are dynamically linked                                                                                                |
+| `rustup`                                                        | `install.sh` installs the pinned toolchain through it                                                                              |
+| network for `static.rust-lang.org` and GitHub release downloads | the toolchain and the four provers are fetched, not bundled                                                                        |
+| a writable `/opt/creusot-why3`                                  | where the Why3 bundle has to live, and stay: `why3` compiles that path in and ignores `WHY3DATA`, so it cannot be moved afterwards |
+| `$CARGO_HOME/bin` on `PATH`                                     | `install.sh` puts `cargo-creusot` there but cannot edit your `PATH`                                                                |
+| `opam`, for `--why3` only                                       | the fallback that builds Why3 from source when the bundle is absent                                                                |
