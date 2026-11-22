@@ -40,23 +40,33 @@ opam switch list >/dev/null 2>&1 || opam init --bare -y
 # `in-creusot-ci` excludes why3-ide, Why3's GTK front end: a bundle for headless
 # machines has no use for it and its lablgtk3 dependencies need system GTK
 # packages. Set on this switch rather than globally.
-rm -rf "$PREFIX"
-mkdir -p "$PREFIX"
-cp "$SRC/creusot-deps.opam" "$PREFIX/creusot-deps.opam"
-opam switch create -y --empty "$PREFIX"
-opam var in-creusot-ci=true --switch "$PREFIX" >/dev/null
-opam install -y --switch "$PREFIX" "$PREFIX"
+if [ -x "$PREFIX/_opam/bin/why3" ] && cmp -s "$SRC/creusot-deps.opam" "$PREFIX/creusot-deps.opam"; then
+  echo "build-why3.sh: reusing the switch at $PREFIX; its creusot-deps.opam already matches"
+else
+  rm -rf "$PREFIX"
+  mkdir -p "$PREFIX"
+  cp "$SRC/creusot-deps.opam" "$PREFIX/creusot-deps.opam"
+  opam switch create -y --empty "$PREFIX"
+  opam var in-creusot-ci=true --switch "$PREFIX" >/dev/null
+  opam install -y --switch "$PREFIX" "$PREFIX"
+fi
 
-# Keep only what running the prover needs. The `.cmxs` plugins are required --
-# why3 fails without lib/why3 -- but the `.cma` bytecode archives, `.cmx`/`.cmi`
-# interfaces and `.mli` sources are only needed to compile against Why3.
+# Keep everything under lib/why3 except what is only needed to *compile* against
+# Why3: the `.cmx`/`.cmi`/`.cmt`/`.cmti` interfaces, `.ml`/`.mli` sources and
+# `.a`/`.o`/`.cma` archives. That is 131 MB down to 20 MB. Excluding by extension
+# rather than selecting `*.cmxs` matters: lib/why3 also holds the `why3server`
+# executable, which why3 spawns to run the provers. Without it every prover call
+# hangs for ever, with no error.
 P=$PREFIX/_opam
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR/bin" "$OUTDIR/share" "$OUTDIR/lib"
 install -m 755 "$P/bin/why3" "$P/bin/why3find" "$OUTDIR/bin/"
 strip "$OUTDIR/bin/why3" "$OUTDIR/bin/why3find"
 cp -r "$P/share/why3" "$OUTDIR/share/"
-(cd "$P" && find lib/why3 -name '*.cmxs' -print0 | tar --null -cf - -T -) | tar -xf - -C "$OUTDIR"
+(cd "$P" && find lib/why3 -type f \
+    ! -name '*.cmx' ! -name '*.cmi' ! -name '*.cmt' ! -name '*.cmti' \
+    ! -name '*.ml' ! -name '*.mli' ! -name '*.a' ! -name '*.o' ! -name '*.cma' \
+    -print0 | tar --null -cf - -T -) | tar -xf - -C "$OUTDIR"
 # Why3 ships its licence in share/why3/LICENSE; add why3find's where opam kept it.
 for f in "$P"/doc/why3find/LICENSE* "$P"/.opam-switch/sources/why3find/LICENSE*; do
   [ -f "$f" ] && cp "$f" "$OUTDIR/LICENSE.why3find" && break
