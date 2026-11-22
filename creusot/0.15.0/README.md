@@ -8,10 +8,10 @@ by [`../build.sh`](../build.sh) and [`../build-why3.sh`](../build-why3.sh). The
 Creusot source is tag `v0.15.0`, commit `fd4d85b2c237ef93147e99f6a0c04acfc89a6a17`;
 the Why3 and why3find versions come from that tag's own `creusot-deps.opam`.
 
-| | |
-|---|---|
-| `creusot-0.15.0-x86_64-unknown-linux-gnu.tar.gz` | `cargo-creusot`, `creusot-rustc`, `creusot-install`, the Creusot Why3 prelude |
-| `creusot-why3-0.15.0-x86_64-unknown-linux-gnu.tar.gz` | Why3 1.8.2+git and why3find 1.3.0+dev — Creusot proves nothing without them |
+|                                                       |                                                                               |
+|-------------------------------------------------------|-------------------------------------------------------------------------------|
+| `creusot-0.15.0-x86_64-unknown-linux-gnu.tar.gz`      | `cargo-creusot`, `creusot-rustc`, `creusot-install`, the Creusot Why3 prelude |
+| `creusot-why3-0.15.0-x86_64-unknown-linux-gnu.tar.gz` | Why3 1.8.2+git and why3find 1.3.0+dev; Creusot proves nothing without them    |
 
 The Creusot binaries need glibc 2.34 or newer; the Why3 bundle needs 2.38. Only
 glibc is built: `creusot-rustc` is a rustc driver and runs only against the Rust
