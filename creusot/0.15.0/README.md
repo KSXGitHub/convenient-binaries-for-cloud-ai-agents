@@ -30,7 +30,7 @@ about using Creusot itself.
 `install.sh` arranges all of this; the list is for installing by hand, or for
 working out why an install misbehaves.
 
-|                                           |                                                                  |
+| requirement                               | what it is for                                                   |
 |-------------------------------------------|------------------------------------------------------------------|
 | glibc                                     | 2.34 or newer for the Creusot binaries, 2.38 for the Why3 bundle |
 | rustup toolchain                          | `nightly-2026-08-03`, `--profile minimal` is enough              |
