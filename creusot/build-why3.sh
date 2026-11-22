@@ -57,6 +57,13 @@ fi
 # rather than selecting `*.cmxs` matters: lib/why3 also holds the `why3server`
 # executable, which why3 spawns to run the provers. Without it every prover call
 # hangs for ever, with no error.
+#
+# `META` and `dune-package` are dropped too. They are ocamlfind and dune metadata
+# for compiling against Why3, and nothing here does -- a proof runs fine without
+# them. They also happen to be the only part of this bundle that is not
+# reproducible: dune writes a git-describe version into META when the package's
+# source tree has git metadata, which depends on whether opam had the pin cached
+# as a clone. Excluding them makes two from-scratch builds byte-identical.
 P=$PREFIX/_opam
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR/bin" "$OUTDIR/share" "$OUTDIR/lib"
@@ -66,6 +73,7 @@ cp -r "$P/share/why3" "$OUTDIR/share/"
 (cd "$P" && find lib/why3 -type f \
     ! -name '*.cmx' ! -name '*.cmi' ! -name '*.cmt' ! -name '*.cmti' \
     ! -name '*.ml' ! -name '*.mli' ! -name '*.a' ! -name '*.o' ! -name '*.cma' \
+    ! -name 'META' ! -name 'dune-package' \
     -print0 | tar --null -cf - -T -) | tar -xf - -C "$OUTDIR"
 # Why3 ships its licence in share/why3/LICENSE; add why3find's where opam kept it.
 for f in "$P"/doc/why3find/LICENSE* "$P"/.opam-switch/sources/why3find/LICENSE*; do
